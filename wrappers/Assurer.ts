@@ -1,9 +1,28 @@
-import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, Sender, SendMode } from 'ton-core';
+import {
+    Address,
+    beginCell,
+    Cell,
+    Contract,
+    contractAddress,
+    ContractProvider,
+    Dictionary,
+    Sender,
+    SendMode
+} from 'ton-core';
 
 export type AssurerConfig = {
     createdTime: number
     authorAddress: Address
 };
+
+export type FundingData = {
+    goal: bigint,
+    donateAmount: bigint,
+    participantsCount: number,
+    donatedCounts: number,
+    validUntil: number,
+    donators: Dictionary<Address, Cell> | undefined
+}
 
 export function assurerConfigToCell(config: AssurerConfig): Cell {
     return beginCell()
@@ -44,5 +63,27 @@ export class Assurer implements Contract {
                 .storeUint(validUntil, 32)
                 .endCell(),
         });
+    }
+
+    async getFundingData(provider: ContractProvider): Promise<FundingData> {
+        const result = await provider.get('get_funding_data', []);
+        return {
+            goal: result.stack.readBigNumber(),
+            donateAmount: result.stack.readBigNumber(),
+            participantsCount: result.stack.readNumber(),
+            donatedCounts: result.stack.readNumber(),
+            validUntil: result.stack.readNumber(),
+            donators: result.stack.readCellOpt()?.beginParse().loadDictDirect(Dictionary.Keys.Address(), Dictionary.Values.Cell())
+        }
+    }
+
+    async getIsActive(provider: ContractProvider): Promise<boolean> {
+        const result = await provider.get('is_active', []);
+        return result.stack.readBoolean();
+    }
+
+    async getBalance(provider: ContractProvider) {
+        const state = await provider.getState();
+        return state.balance;
     }
 }

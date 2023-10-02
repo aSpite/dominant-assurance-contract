@@ -1,4 +1,4 @@
-import {Blockchain, SandboxContract, TreasuryContract} from '@ton-community/sandbox';
+import {Blockchain, SandboxContract, SendMessageResult, TreasuryContract} from '@ton-community/sandbox';
 import {Cell, Sender, toNano, TransactionComputeVm, TransactionDescriptionGeneric} from 'ton-core';
 import { Assurer } from '../wrappers/Assurer';
 import '@ton-community/test-utils';
@@ -25,6 +25,25 @@ async function getInitDeployPhase(
     return description.computePhase as TransactionComputeVm
 }
 
+const errors = {
+    unauthorized: 100,
+    smallFundingAmount: 101,
+    smallGuaranteeAmount: 102,
+    bigGuaranteeAmount: 103,
+    manyParticipants: 104,
+    bigFundingPeriod: 105,
+    smallDonateAmount: 106,
+    notEnoughCoins: 107
+};
+
+const initData = {
+    value: 21_000_000_000n,
+    goal: 100_000_000_000n,
+    guaranteeAmount: 20_000_000_000n,
+    participantsCount: 10,
+    validUntil: Math.ceil(Date.now() / 1000) + 60 * 60 // + 1 hour
+};
+
 describe('Assurer', () => {
     let code: Cell;
 
@@ -35,15 +54,14 @@ describe('Assurer', () => {
     let blockchain: Blockchain;
     let deployer: SandboxContract<TreasuryContract>
     let assurer: SandboxContract<Assurer>;
-    const errors = {
-        unauthorized: 100,
-        smallFundingAmount: 101,
-        smallGuaranteeAmount: 102,
-        bigGuaranteeAmount: 103,
-        manyParticipants: 104,
-        bigFundingPeriod: 105,
-        smallDonateAmount: 106,
-        notEnoughCoins: 107
+    const deploy = async (): Promise<SendMessageResult> => {
+        return await assurer.sendDeploy(deployer.getSender(),
+            initData.value,
+            initData.goal,
+            initData.guaranteeAmount,
+            initData.participantsCount,
+            initData.validUntil // + 1 hour
+        );
     }
     let users: SandboxContract<TreasuryContract>[];
 
@@ -151,21 +169,38 @@ describe('Assurer', () => {
     });
 
     it('should deploy and handle balance', async () => {
-        const deployResult = await assurer.sendDeploy(deployer.getSender(),
-            toNano(21),
-            toNano(100),
-            toNano(20),
-            10,
-            Math.ceil(Date.now() / 1000) + 60 * 60 // + 1 hour
-        );
+        const deployResult = await deploy();
 
         // TODO: Change this
-        expect((await blockchain.getContract(assurer.address)).balance).toStrictEqual(20_000_000_001n);
+        expect(await assurer.getBalance()).toStrictEqual(20_000_000_001n);
         expect(deployResult.transactions).toHaveTransaction({
             from: deployer.address,
             to: assurer.address,
             deploy: true,
             success: true,
         });
+    });
+
+    it('should return correct data', async () => {
+        await deploy();
+        const fundingData = await assurer.getFundingData();
+        expect(fundingData.goal).toStrictEqual(initData.goal);
+        expect(fundingData.donateAmount).toStrictEqual(10_000_000_000n);
+        expect(fundingData.participantsCount).toStrictEqual(initData.participantsCount);
+        expect(fundingData.donatedCounts).toStrictEqual(0);
+        expect(fundingData.validUntil).toStrictEqual(initData.validUntil);
+        expect(fundingData.donators).toBeUndefined();
+    });
+
+    it('should be active', async () => {
+        await deploy();
+        expect(await assurer.getIsActive()).toBeTruthy();
+    });
+
+    it('should not be active', async () => {
+        await deploy();
+        expect(await assurer.getIsActive()).toBeTruthy();
+        blockchain.now = Math.ceil(Date.now() / 1000) + 60 * 60; // + 1 hour
+        expect(await assurer.getIsActive()).toBeFalsy();
     });
 });
