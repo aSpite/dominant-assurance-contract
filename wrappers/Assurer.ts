@@ -1,9 +1,15 @@
 import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, Sender, SendMode } from 'ton-core';
 
-export type AssurerConfig = {};
+export type AssurerConfig = {
+    createdTime: number
+    authorAddress: Address
+};
 
 export function assurerConfigToCell(config: AssurerConfig): Cell {
-    return beginCell().endCell();
+    return beginCell()
+        .storeUint(config.createdTime, 32)
+        .storeAddress(config.authorAddress)
+        .endCell();
 }
 
 export class Assurer implements Contract {
@@ -19,11 +25,24 @@ export class Assurer implements Contract {
         return new Assurer(contractAddress(workchain, init), init);
     }
 
-    async sendDeploy(provider: ContractProvider, via: Sender, value: bigint) {
+    async sendDeploy(
+        provider: ContractProvider,
+        via: Sender,
+        value: bigint,
+        goal: bigint,
+        guaranteeAmount: bigint,
+        participantsCount: number,
+        validUntil: number
+    ) {
         await provider.internal(via, {
             value,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
-            body: beginCell().endCell(),
+            body: beginCell()
+                .storeCoins(goal)
+                .storeCoins(guaranteeAmount)
+                .storeUint(participantsCount, 8)
+                .storeUint(validUntil, 32)
+                .endCell(),
         });
     }
 }
