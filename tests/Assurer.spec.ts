@@ -62,23 +62,6 @@ describe('Assurer', () => {
         }, code));
     });
 
-    it('should deploy', async () => {
-        const deployResult = await assurer.sendDeploy(deployer.getSender(),
-            toNano(21),
-            toNano(100),
-            toNano(20),
-            10,
-            Math.ceil(Date.now() / 1000) + 60 * 60 // + 1 hour
-        );
-        // console.log(deployResult.transactions[1])
-        expect(deployResult.transactions).toHaveTransaction({
-            from: deployer.address,
-            to: assurer.address,
-            deploy: true,
-            success: true,
-        });
-    });
-
     it('should handle init errors', async() => {
         assurer = blockchain.openContract(Assurer.createFromConfig({
             createdTime: Math.ceil(Date.now() / 1000),
@@ -165,5 +148,24 @@ describe('Assurer', () => {
         );
 
         expect(computePhase.exitCode).toStrictEqual(errors.notEnoughCoins);
+    });
+
+    it('should deploy and handle balance', async () => {
+        const deployResult = await assurer.sendDeploy(deployer.getSender(),
+            toNano(21),
+            toNano(100),
+            toNano(20),
+            10,
+            Math.ceil(Date.now() / 1000) + 60 * 60 // + 1 hour
+        );
+
+        // TODO: Change this
+        expect((await blockchain.getContract(assurer.address)).balance).toStrictEqual(20_000_000_001n);
+        expect(deployResult.transactions).toHaveTransaction({
+            from: deployer.address,
+            to: assurer.address,
+            deploy: true,
+            success: true,
+        });
     });
 });

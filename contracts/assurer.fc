@@ -12,6 +12,8 @@ global int storage::donated_count;
 global int storage::valid_until;
 global cell storage::donators;
 
+(int) div_ceil(int x, int y) impure asm "DIVC";
+
 () load_data() impure {
     slice ds = get_data().begin_parse();
 
@@ -58,22 +60,64 @@ global cell storage::donators;
         storage::guarantee_amount = in_msg_body~load_coins();
         storage::participants_count = in_msg_body~load_uint(8);
         storage::valid_until = in_msg_body~load_uint(32);
-        storage::donate_amount = storage::goal / storage::participants_count;
+        storage::donate_amount = div_ceil(storage::goal, storage::participants_count);
         storage::donated_count = 0;
-        throw_unless(error::small_funding_amount, storage::goal >= const::min_funding_amount);
+        throw_unless(error::small_funding_amount, storage::goal >= config::min_funding_amount);
         throw_unless(error::small_guarantee_amount,
-            storage::guarantee_amount * 100 / storage::goal >= const::min_guarantee_percentage);
+            storage::guarantee_amount * 100 / storage::goal >= config::min_guarantee_percentage);
         throw_unless(error::big_guarantee_amount,
-            storage::guarantee_amount * 100 / storage::goal <= const::max_guarantee_percentage);
+            storage::guarantee_amount * 100 / storage::goal <= config::max_guarantee_percentage);
         ;; 8 bits can hold a maximum number of 255, but this is a check for the
         ;; future if you need to change the contract for a larger number of participants
         throw_unless(error::many_participants, storage::participants_count <= 255);
-        throw_unless(error::big_funding_period, storage::valid_until - now() <= const::max_funding_period);
-        throw_unless(error::small_donate_amount, storage::donate_amount >= const::min_donate_amount);
+        throw_unless(error::big_funding_period, storage::valid_until - now() <= config::max_funding_period);
+        throw_unless(error::small_donate_amount, storage::donate_amount >= config::min_donate_amount);
         ;; TODO: Handle storage and deploy fees
-        throw_unless(error::not_enough_coins, msg_value >= storage::guarantee_amount);
+        throw_unless(error::not_enough_coins, msg_value >= storage::guarantee_amount + fee::initilization);
 
+        in_msg_body.end_parse();
+        raw_reserve(storage::guarantee_amount + fee::initilization, 4);
+        send_raw_message(begin_cell()
+            .store_uint(0x10, 6)
+            .store_slice(sender)
+            .store_coins(0)
+            .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+            .end_cell()
+        , 128);
         save_data();
         return();
     }
+}
+
+(int, int, int, int, int, cell) get_funding_data() method_id {
+    load_data();
+    if(~ storage::init?) {
+        return (-1, -1, -1, -1, -1, null());
+    }
+    return (
+            storage::goal,
+            storage::donate_amount,
+            storage::participants_count,
+            storage::donated_count,
+            storage::valid_until,
+            storage::donators
+    );
+}
+
+(int) is_active() method_id {
+    load_data();
+
+    if(~ storage::init?) {
+        return 0;
+    }
+
+    if(storage::participants_count == storage::donated_count) {
+        return 0;
+    }
+
+    if(now() >= storage::valid_until) {
+        return 0;
+    }
+
+    return -1;
 }

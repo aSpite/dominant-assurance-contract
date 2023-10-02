@@ -1,0 +1,2 @@
+_ created_time:uint32 author_address:MsgAddressInt goal:Coins donate_amount:Coins guarantee_amount:Coins
+  participants_count:uint8 valid_until:uint32 donators:(HashmapE 267 ^Cell) = AssurerStorage;

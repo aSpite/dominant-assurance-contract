@@ -1,9 +1,11 @@
-const int const::min_funding_amount = 50 * 1000000000; ;; 50 TON
-const int const::min_guarantee_percentage = 5; ;; 5%
-const int const::max_guarantee_percentage = 25; ;; 25%
-const int const::max_participants_count = 255;
-const int const::max_funding_period = 2678400; ;; 31 days
-const int const::min_donate_amount = 1 * 1000000000; ;; 1 TON
+const int config::min_funding_amount = 50 * 1000000000; ;; 50 TON
+const int config::min_guarantee_percentage = 5; ;; 5%
+const int config::max_guarantee_percentage = 25; ;; 25%
+const int config::max_participants_count = 255;
+const int config::max_funding_period = 2678400; ;; 31 days
+const int config::min_donate_amount = 1 * 1000000000; ;; 1 TON
+
+const int fee::initilization = 1; ;; TODO: Change this
 
 const int error::unauthorized = 100;
 const int error::small_funding_amount = 101;
