@@ -1,3 +1,5 @@
+const int op::donate = 0x6e89546a;
+
 const int config::min_funding_amount = 50 * 1000000000; ;; 50 TON
 const int config::min_guarantee_percentage = 5; ;; 5%
 const int config::max_guarantee_percentage = 25; ;; 25%
@@ -6,6 +8,7 @@ const int config::max_funding_period = 2678400; ;; 31 days
 const int config::min_donate_amount = 1 * 1000000000; ;; 1 TON
 
 const int fee::initilization = 1; ;; TODO: Change this
+const int fee::donate = 10000000; ;; TODO: Change this
 
 const int error::unauthorized = 100;
 const int error::small_funding_amount = 101;
@@ -15,3 +18,6 @@ const int error::many_participants = 104;
 const int error::big_funding_period = 105;
 const int error::small_donate_amount = 106;
 const int error::not_enough_coins = 107;
+const int error::not_enough_donate = 108;
+const int error::not_active = 109;
+const int error::already_donated = 110;

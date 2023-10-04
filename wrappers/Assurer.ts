@@ -5,9 +5,9 @@ import {
     Contract,
     contractAddress,
     ContractProvider,
-    Dictionary,
+    Dictionary, DictionaryValue,
     Sender,
-    SendMode
+    SendMode, Slice
 } from 'ton-core';
 
 export type AssurerConfig = {
@@ -29,6 +29,16 @@ export function assurerConfigToCell(config: AssurerConfig): Cell {
         .storeUint(config.createdTime, 32)
         .storeAddress(config.authorAddress)
         .endCell();
+}
+
+function createEmptyValue(): DictionaryValue<Cell> {
+    return {
+        serialize: (src: any, buidler: any) => {
+        },
+        parse: (src: Slice) => {
+            return Cell.EMPTY
+        }
+    }
 }
 
 export class Assurer implements Contract {
@@ -65,6 +75,23 @@ export class Assurer implements Contract {
         });
     }
 
+    async sendDonate(
+        provider:ContractProvider,
+        via: Sender,
+        value: bigint,
+        op: number,
+        queryID: number
+    ) {
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: beginCell()
+                .storeUint(op, 32)
+                .storeUint(queryID, 64)
+                .endCell()
+        });
+    }
+
     async getFundingData(provider: ContractProvider): Promise<FundingData> {
         const result = await provider.get('get_funding_data', []);
         return {
@@ -73,7 +100,7 @@ export class Assurer implements Contract {
             participantsCount: result.stack.readNumber(),
             donatedCounts: result.stack.readNumber(),
             validUntil: result.stack.readNumber(),
-            donators: result.stack.readCellOpt()?.beginParse().loadDictDirect(Dictionary.Keys.Address(), Dictionary.Values.Cell())
+            donators: result.stack.readCellOpt()?.beginParse().loadDictDirect(Dictionary.Keys.Address(), createEmptyValue())
         }
     }
 

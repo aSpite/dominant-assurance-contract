@@ -13,6 +13,7 @@ global int storage::valid_until;
 global cell storage::donators;
 
 (int) div_ceil(int x, int y) impure asm "DIVC";
+(slice, int) dict_get?(cell dict, int key_len, slice index) asm(index dict key_len) "DICTGET" "NULLSWAPIFNOT";
 
 () load_data() impure {
     slice ds = get_data().begin_parse();
@@ -62,6 +63,7 @@ global cell storage::donators;
         storage::valid_until = in_msg_body~load_uint(32);
         storage::donate_amount = div_ceil(storage::goal, storage::participants_count);
         storage::donated_count = 0;
+        storage::donators = new_dict();
         throw_unless(error::small_funding_amount, storage::goal >= config::min_funding_amount);
         throw_unless(error::small_guarantee_amount,
             storage::guarantee_amount * 100 / storage::goal >= config::min_guarantee_percentage);
@@ -86,6 +88,29 @@ global cell storage::donators;
         , 128);
         save_data();
         return();
+    }
+
+    int op = in_msg_body~load_uint(32);
+    int query_id = in_msg_body~load_uint(64);
+    load_data();
+    if(op == op::donate) {
+        throw_unless(error::not_active,
+            (now() < storage::valid_until) & (storage::participants_count > storage::donated_count));
+        in_msg_body.end_parse();
+        throw_unless(error::not_enough_donate, storage::donate_amount + fee::donate <= msg_value);
+        (_, int f) = storage::donators.dict_get?(267, sender);
+        throw_unless(error::already_donated, f == 0);
+        raw_reserve(storage::donate_amount, 4);
+        send_raw_message(begin_cell()
+            .store_uint(0x10, 6)
+            .store_slice(sender)
+            .store_coins(0)
+            .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+            .end_cell()
+        , 128);
+        storage::donated_count += 1;
+        storage::donators~dict_set(267, sender, begin_cell().end_cell().begin_parse());
+        save_data();
     }
 }
 

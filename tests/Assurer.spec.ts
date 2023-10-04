@@ -1,5 +1,14 @@
 import {Blockchain, SandboxContract, SendMessageResult, TreasuryContract} from '@ton-community/sandbox';
-import {Cell, Sender, toNano, TransactionComputeVm, TransactionDescriptionGeneric} from 'ton-core';
+import {
+    Address,
+    beginCell,
+    Cell,
+    Sender,
+    Slice,
+    toNano,
+    TransactionComputeVm,
+    TransactionDescriptionGeneric
+} from 'ton-core';
 import { Assurer } from '../wrappers/Assurer';
 import '@ton-community/test-utils';
 import { compile } from '@ton-community/blueprint';
@@ -33,7 +42,10 @@ const errors = {
     manyParticipants: 104,
     bigFundingPeriod: 105,
     smallDonateAmount: 106,
-    notEnoughCoins: 107
+    notEnoughCoins: 107,
+    notEnoughDonate: 108,
+    notActive: 109,
+    alreadyDonated: 110
 };
 
 const initData = {
@@ -43,6 +55,15 @@ const initData = {
     participantsCount: 10,
     validUntil: Math.ceil(Date.now() / 1000) + 60 * 60 // + 1 hour
 };
+
+const opcodes = {
+    donate: 0x6e89546a
+};
+
+const fees = {
+    init: 1n,
+    donate: 10_000_000n
+}
 
 describe('Assurer', () => {
     let code: Cell;
@@ -202,5 +223,97 @@ describe('Assurer', () => {
         expect(await assurer.getIsActive()).toBeTruthy();
         blockchain.now = Math.ceil(Date.now() / 1000) + 60 * 60; // + 1 hour
         expect(await assurer.getIsActive()).toBeFalsy();
+    });
+
+    it('should donate', async () => {
+        await deploy();
+        let fundingData = await assurer.getFundingData();
+        const result = await assurer.sendDonate(
+            users[0].getSender(),
+            fundingData.donateAmount + fees.donate,
+            opcodes.donate,
+            0
+        );
+        fundingData = await assurer.getFundingData();
+        expect(result.transactions).toHaveTransaction({
+            from: users[0].address,
+            to: assurer.address,
+            success: true
+        });
+        expect(fundingData.donatedCounts).toStrictEqual(1);
+    });
+
+    it('handle double donation & while inactive', async () => {
+        await deploy();
+        let fundingData = await assurer.getFundingData();
+        let result = await assurer.sendDonate(
+            users[0].getSender(),
+            fundingData.donateAmount + fees.donate,
+            opcodes.donate,
+            0
+        );
+        fundingData = await assurer.getFundingData();
+        expect(result.transactions).toHaveTransaction({
+            from: users[0].address,
+            to: assurer.address,
+            success: true
+        });
+        expect(fundingData.donatedCounts).toStrictEqual(1);
+
+        result = await assurer.sendDonate(
+            users[0].getSender(),
+            fundingData.donateAmount + fees.donate,
+            opcodes.donate,
+            0
+        );
+        expect(result.transactions).toHaveTransaction({
+            from: users[0].address,
+            to: assurer.address,
+            success: false,
+            exitCode: errors.alreadyDonated
+        });
+
+        blockchain.now = Math.ceil(Date.now() / 1000) + 60 * 60; // + 1 hour
+        result = await assurer.sendDonate(
+            users[0].getSender(),
+            fundingData.donateAmount + fees.donate,
+            opcodes.donate,
+            0
+        );
+        expect(result.transactions).toHaveTransaction({
+            from: users[0].address,
+            to: assurer.address,
+            success: false,
+            exitCode: errors.notActive
+        });
+    });
+
+    it('minimal msg value for donate', async () => {
+        await deploy();
+        let fundingData = await assurer.getFundingData();
+        let result = await assurer.sendDonate(
+            users[0].getSender(),
+            fundingData.donateAmount + fees.donate - 1n,
+            opcodes.donate,
+            0
+        );
+        expect(result.transactions).toHaveTransaction({
+            from: users[0].address,
+            to: assurer.address,
+            success: false,
+            exitCode: errors.notEnoughDonate
+        });
+
+        result = await assurer.sendDonate(
+            users[0].getSender(),
+            fundingData.donateAmount + fees.donate,
+            opcodes.donate,
+            0
+        );
+        expect(result.transactions).toHaveTransaction({
+            from: users[0].address,
+            to: assurer.address,
+            success: true
+        });
     });
 });
