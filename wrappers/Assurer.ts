@@ -72,7 +72,7 @@ export class Assurer implements Contract {
             body: beginCell()
                 .storeCoins(goal)
                 .storeCoins(guaranteeAmount)
-                .storeUint(participantsCount, 8)
+                .storeUint(participantsCount, 16)
                 .storeUint(validUntil, 32)
                 .endCell(),
         });

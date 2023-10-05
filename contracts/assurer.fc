@@ -28,8 +28,8 @@ global cell storage::donators;
         storage::goal = ds~load_coins();
         storage::donate_amount = ds~load_coins();
         storage::guarantee_amount = ds~load_coins();
-        storage::participants_count = ds~load_uint(8);
-        storage::donated_count = ds~load_uint(8);
+        storage::participants_count = ds~load_uint(16);
+        storage::donated_count = ds~load_uint(16);
         storage::valid_until = ds~load_uint(32);
         storage::donators = ds~load_dict();
     }
@@ -42,12 +42,52 @@ global cell storage::donators;
             .store_coins(storage::goal)
             .store_coins(storage::donate_amount)
             .store_coins(storage::guarantee_amount)
-            .store_uint(storage::participants_count, 8)
-            .store_uint(storage::donated_count, 8)
+            .store_uint(storage::participants_count, 16)
+            .store_uint(storage::donated_count, 16)
             .store_uint(storage::valid_until, 32)
             .store_dict(storage::donators)
             .end_cell()
     );
+}
+
+() handle_returns() impure inline {
+    int count = 0;
+    do {
+        (slice addr, _, int f) = storage::donators~dict::delete_get_min(267);
+        int return_amount = div_floor(storage::guarantee_amount, storage::participants_count);
+        if(f) {
+            send_raw_message(begin_cell()
+            .store_uint(0x10, 6)
+            .store_slice(addr)
+            .store_coins(storage::donate_amount + return_amount)
+            .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+            .store_uint(op::return, 32)
+            .end_cell()
+                , 1);
+        }
+        count += 1;
+    } until((~ f) | (count == 160));
+    if(count == 160) {
+        save_data();
+        send_raw_message(begin_cell()
+        .store_uint(0x10, 6)
+        .store_slice(my_address())
+        .store_coins(10000000)
+        .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .store_uint(0x89150cee, 32)
+        .store_uint(0, 64)
+        .end_cell()
+            , 1);
+    } else {
+        save_data();
+        send_raw_message(begin_cell()
+        .store_uint(0x10, 6)
+        .store_slice(storage::author_address)
+        .store_coins(0)
+        .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .end_cell()
+            , 128);
+    }
 }
 
 () recv_external(slice in_msg) {
@@ -56,29 +96,8 @@ global cell storage::donators;
     throw_unless(error::still_active, now() >= storage::valid_until);
     throw_if(error::funding_ended, storage::donated_count == storage::participants_count);
     accept_message();
-    do {
-        (slice addr, _, int f) = storage::donators~dict::delete_get_min(267);
-        int return_amount = div_floor(storage::guarantee_amount, storage::participants_count);
-        if(f) {
-            send_raw_message(begin_cell()
-            .store_uint(0x10, 6)
-            .store_slice(addr)
-            .store_coins(return_amount)
-            .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-            .store_uint(op::return, 32)
-            .end_cell()
-                , 1);
-        }
-    } until(~ f);
     storage::donated_count = 0;
-    save_data();
-    send_raw_message(begin_cell()
-    .store_uint(0x10, 6)
-    .store_slice(storage::author_address)
-    .store_coins(0)
-    .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-    .end_cell()
-        , 128);
+    handle_returns();
 }
 
 () recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
@@ -91,7 +110,7 @@ global cell storage::donators;
         throw_unless(error::unauthorized, equal_slices(storage::author_address, sender));
         storage::goal = in_msg_body~load_coins();
         storage::guarantee_amount = in_msg_body~load_coins();
-        storage::participants_count = in_msg_body~load_uint(8);
+        storage::participants_count = in_msg_body~load_uint(16);
         storage::valid_until = in_msg_body~load_uint(32);
         storage::donate_amount = div_ceil(storage::goal, storage::participants_count);
         storage::donated_count = 0;
@@ -101,9 +120,9 @@ global cell storage::donators;
             storage::guarantee_amount * 100 / storage::goal >= config::min_guarantee_percentage);
         throw_unless(error::big_guarantee_amount,
             storage::guarantee_amount * 100 / storage::goal <= config::max_guarantee_percentage);
-        ;; 8 bits can hold a maximum number of 255, but this is a check for the
-        ;; future if you need to change the contract for a larger number of participants
-        throw_unless(error::many_participants, storage::participants_count <= 255);
+        ;; fees are calculated for maximum 500 participants
+        ;; if you want to change this limit, you should recalculate fees
+        throw_unless(error::many_participants, storage::participants_count <= config::max_participants_count);
         throw_unless(error::big_funding_period, storage::valid_until - now() <= config::max_funding_period);
         throw_unless(error::small_donate_amount, storage::donate_amount >= config::min_donate_amount);
         ;; TODO: Handle storage and deploy fees
@@ -156,7 +175,13 @@ global cell storage::donators;
             .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
             .end_cell()
             , 128);
-        ;; TODO: Think about donated_counts
+        return();
+    }
+
+    if(op == 0x89150cee) {
+        throw_unless(error::unauthorized, equal_slices(sender, my_address()));
+        accept_message();
+        handle_returns();
         return();
     }
 

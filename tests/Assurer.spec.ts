@@ -1,10 +1,13 @@
-import {Blockchain, SandboxContract, SendMessageResult, TreasuryContract} from '@ton-community/sandbox';
 import {
-    Address,
-    beginCell,
-    Cell,
+    Blockchain,
+    printTransactionFees,
+    SandboxContract,
+    SendMessageResult,
+    TreasuryContract
+} from '@ton-community/sandbox';
+import {
+    Cell, CommonMessageInfo,
     Sender,
-    Slice,
     toNano,
     TransactionComputeVm,
     TransactionDescriptionGeneric
@@ -12,6 +15,7 @@ import {
 import { Assurer } from '../wrappers/Assurer';
 import '@ton-community/test-utils';
 import { compile } from '@ton-community/blueprint';
+import {CommonMessageInfoInternal} from "ton-core/src/types/CommonMessageInfo";
 
 async function getInitDeployPhase(
     assurer: SandboxContract<Assurer>,
@@ -53,7 +57,7 @@ const errors = {
 };
 
 const initData = {
-    value: 21_000_000_000n,
+    value: 25_000_000_000n,
     goal: 100_000_000_000n,
     guaranteeAmount: 20_000_000_000n,
     participantsCount: 10,
@@ -61,8 +65,8 @@ const initData = {
 };
 
 const fees = {
-    init: 1n,
-    donate: 100_000_000n
+    init: 4_000_000_000n,
+    donate: 20_000_000n
 }
 
 describe('Assurer', () => {
@@ -91,7 +95,7 @@ describe('Assurer', () => {
         deployer = await blockchain.treasury('deployer');
 
         users = [];
-        for(let i = 0; i < 12; i++) {
+        for(let i = 0; i < 500; i++) {
             users.push(await blockchain.treasury(`user ${i}`))
         }
 
@@ -143,15 +147,14 @@ describe('Assurer', () => {
         );
         expect(computePhase.exitCode).toStrictEqual(errors.bigGuaranteeAmount);
 
-        // Not actual in case of 8 bits for participantsCount
-        // computePhase = await getInitDeployPhase(assurer, deployer.getSender(),
-        //     toNano(21),
-        //     toNano(100),
-        //     toNano(26),
-        //     255,
-        //     Math.ceil(Date.now() / 1000) + 60 * 60 // + 1 hour
-        // );
-        // expect(computePhase.exitCode).toStrictEqual(errors.bigGuaranteeAmount)
+        computePhase = await getInitDeployPhase(assurer, deployer.getSender(),
+            toNano(51),
+            toNano(600),
+            toNano(50),
+            501,
+            Math.ceil(Date.now() / 1000) + 60 * 60 // + 1 hour
+        );
+        expect(computePhase.exitCode).toStrictEqual(errors.manyParticipants)
 
         computePhase = await getInitDeployPhase(assurer, deployer.getSender(),
             toNano(21),
@@ -192,8 +195,7 @@ describe('Assurer', () => {
     it('should deploy and handle balance', async () => {
         const deployResult = await deploy();
 
-        // TODO: Change this
-        expect(await assurer.getBalance()).toStrictEqual(20_000_000_001n);
+        expect(await assurer.getBalance()).toStrictEqual(initData.guaranteeAmount + fees.init);
         expect(deployResult.transactions).toHaveTransaction({
             from: deployer.address,
             to: assurer.address,
@@ -427,5 +429,72 @@ describe('Assurer', () => {
             success: true
         });
         expect(await assurer.getBalance()).toStrictEqual(0n);
+    });
+
+    it('499 donates + return', async () => {
+        let result = await assurer.sendDeploy(deployer.getSender(),
+            toNano(150),
+            toNano(1000),
+            toNano(100),
+            500,
+            initData.validUntil
+        );
+
+        expect(result.transactions).toHaveTransaction({
+            from: deployer.address,
+            to: assurer.address,
+            deploy: true,
+            success: true,
+        });
+
+        let fundingData = await assurer.getFundingData();
+        let snapshot = blockchain.snapshot();
+        for(let i = 0; i < 500; i++) {
+            result = await assurer.sendDonate(
+                users[i].getSender(),
+                fundingData.donateAmount + toNano(1),
+                0
+            );
+
+            if(i == 498)
+                snapshot = blockchain.snapshot();
+
+            // calculating compute fees for donate
+            if(i == 499) {
+                console.log(fundingData.donateAmount)
+                // printTransactionFees(result.transactions)
+                console.log(result.transactions[1].description)
+                // 14 983 000n = 0.014983 TON
+            }
+        }
+
+        fundingData = await assurer.getFundingData();
+        for(let i = 0; i < 500; i++) {
+            expect(fundingData.donators!.has(users[i].address)).toBeTruthy();
+        }
+
+        blockchain.now = Math.ceil(Date.now() / 1000) + 68 * 60 * 24 * 365; // + 1 year
+        result = await assurer.sendDonate(
+            users[0].getSender(),
+            fundingData.donateAmount + toNano(1),
+            0
+        );
+        // calculating storage fees
+        console.log(
+            (result.transactions[1].description as TransactionDescriptionGeneric)
+                .storagePhase!.storageFeesCollected
+        )
+        // 35 2212 898n = 0.035221 TON
+
+        // fundingData = await assurer.getFundingData();
+        // expect(fundingData.donatedCounts).toStrictEqual(255);
+        // expect(fundingData.donators!.size).toStrictEqual(255);
+
+        await blockchain.loadFrom(snapshot);
+        blockchain.now = Math.ceil(Date.now() / 1000) + 60 * 60; // + 1 hour
+        result = await assurer.sendReturn();
+        console.log(await assurer.getBalance());
+        console.log((result.transactions[503].inMessage!.info as CommonMessageInfoInternal).value.coins)
+        // 3 097 463 668 = 3.097463 TON
     });
 });
