@@ -18,6 +18,7 @@ export type AssurerConfig = {
 export type FundingData = {
     goal: bigint,
     donateAmount: bigint,
+    guaranteeAmount: bigint,
     participantsCount: number,
     donatedCounts: number,
     validUntil: number,
@@ -97,6 +98,7 @@ export class Assurer implements Contract {
         return {
             goal: result.stack.readBigNumber(),
             donateAmount: result.stack.readBigNumber(),
+            guaranteeAmount: result.stack.readBigNumber(),
             participantsCount: result.stack.readNumber(),
             donatedCounts: result.stack.readNumber(),
             validUntil: result.stack.readNumber(),

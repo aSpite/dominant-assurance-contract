@@ -45,7 +45,9 @@ const errors = {
     notEnoughCoins: 107,
     notEnoughDonate: 108,
     notActive: 109,
-    alreadyDonated: 110
+    alreadyDonated: 110,
+    underfunded: 111,
+    stillActive: 112
 };
 
 const initData = {
@@ -57,12 +59,13 @@ const initData = {
 };
 
 const opcodes = {
-    donate: 0x6e89546a
+    donate: 0x6e89546a,
+    claim: 0xed7ae559
 };
 
 const fees = {
     init: 1n,
-    donate: 10_000_000n
+    donate: 100_000_000n
 }
 
 describe('Assurer', () => {
@@ -315,5 +318,27 @@ describe('Assurer', () => {
             to: assurer.address,
             success: true
         });
+    });
+
+    it('funding completed', async () => {
+        await deploy();
+        const balance = await assurer.getBalance();
+        let fundingData = await assurer.getFundingData();
+        for(let i = 0; i < 10; i++) {
+            await assurer.sendDonate(
+                users[i].getSender(),
+                fundingData.donateAmount + fees.donate,
+                opcodes.donate,
+                0
+            );
+        }
+
+        fundingData = await assurer.getFundingData();
+        expect(fundingData.donatedCounts).toStrictEqual(10);
+        expect(fundingData.donators!.size).toStrictEqual(10);
+        const isActive = await assurer.getIsActive();
+        expect(isActive).toBeFalsy();
+        expect(await assurer.getBalance()).toStrictEqual(balance + fundingData.donateAmount * 10n);
+        console.log(fundingData.donators)
     });
 });

@@ -12,6 +12,7 @@ global int storage::donated_count;
 global int storage::valid_until;
 global cell storage::donators;
 
+(int) div_floor(int x, int y) impure asm "DIV";
 (int) div_ceil(int x, int y) impure asm "DIVC";
 (slice, int) dict_get?(cell dict, int key_len, slice index) asm(index dict key_len) "DICTGET" "NULLSWAPIFNOT";
 
@@ -109,19 +110,37 @@ global cell storage::donators;
             .end_cell()
         , 128);
         storage::donated_count += 1;
-        storage::donators~dict_set(267, sender, begin_cell().end_cell().begin_parse());
+        storage::donators~dict_set_builder(267, sender, begin_cell());
         save_data();
+        return();
     }
+
+    if(op == op::claim) {
+        throw_unless(error::unauthorized, equal_slices(storage::author_address, sender));
+        throw_unless(error::underfunded, storage::participants_count = storage::donated_count);
+        send_raw_message(begin_cell()
+            .store_uint(0x10, 6)
+            .store_slice(sender)
+            .store_coins(0)
+            .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+            .end_cell()
+            , 128);
+        ;; TODO: Think about donated_counts
+        return();
+    }
+
+    throw(0xffff);
 }
 
-(int, int, int, int, int, cell) get_funding_data() method_id {
+(int, int, int, int, int, int, cell) get_funding_data() method_id {
     load_data();
     if(~ storage::init?) {
-        return (-1, -1, -1, -1, -1, null());
+        return (-1, -1, -1, -1, -1, -1, null());
     }
     return (
             storage::goal,
             storage::donate_amount,
+            storage::guarantee_amount,
             storage::participants_count,
             storage::donated_count,
             storage::valid_until,
