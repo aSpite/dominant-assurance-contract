@@ -50,6 +50,36 @@ global cell storage::donators;
     );
 }
 
+() recv_external(slice in_msg) {
+    load_data();
+    throw_unless(error::no_donators, storage::donated_count > 0);
+    throw_unless(error::still_active, now() < storage::valid_until);
+    ;; TODO: Handle success case
+    accept_message();
+    do {
+        (slice addr, _, int f) = storage::donators~dict::delete_get_min(267);
+        int return_amount = div_floor(storage::guarantee_amount, storage::donated_count);
+        if(f) {
+            send_raw_message(begin_cell()
+            .store_uint(0x10, 6)
+            .store_slice(addr)
+            .store_coins(return_amount)
+            .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+            .end_cell()
+                , 1);
+        }
+    } until(~ f);
+    storage::donated_count = 0;
+    save_data();
+    send_raw_message(begin_cell()
+    .store_uint(0x10, 6)
+    .store_slice(storage::author_address)
+    .store_coins(0)
+    .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+    .end_cell()
+        , 128);
+}
+
 () recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
     slice cs = in_msg_full.begin_parse();
     cs~skip_bits(4); ;; flags
@@ -117,7 +147,7 @@ global cell storage::donators;
 
     if(op == op::claim) {
         throw_unless(error::unauthorized, equal_slices(storage::author_address, sender));
-        throw_unless(error::underfunded, storage::participants_count = storage::donated_count);
+        throw_unless(error::underfunded, storage::participants_count == storage::donated_count);
         send_raw_message(begin_cell()
             .store_uint(0x10, 6)
             .store_slice(sender)

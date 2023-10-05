@@ -47,7 +47,8 @@ const errors = {
     notActive: 109,
     alreadyDonated: 110,
     underfunded: 111,
-    stillActive: 112
+    stillActive: 112,
+    noDonators: 113
 };
 
 const initData = {
@@ -234,7 +235,6 @@ describe('Assurer', () => {
         const result = await assurer.sendDonate(
             users[0].getSender(),
             fundingData.donateAmount + fees.donate,
-            opcodes.donate,
             0
         );
         fundingData = await assurer.getFundingData();
@@ -252,7 +252,6 @@ describe('Assurer', () => {
         let result = await assurer.sendDonate(
             users[0].getSender(),
             fundingData.donateAmount + fees.donate,
-            opcodes.donate,
             0
         );
         fundingData = await assurer.getFundingData();
@@ -266,7 +265,6 @@ describe('Assurer', () => {
         result = await assurer.sendDonate(
             users[0].getSender(),
             fundingData.donateAmount + fees.donate,
-            opcodes.donate,
             0
         );
         expect(result.transactions).toHaveTransaction({
@@ -280,7 +278,6 @@ describe('Assurer', () => {
         result = await assurer.sendDonate(
             users[0].getSender(),
             fundingData.donateAmount + fees.donate,
-            opcodes.donate,
             0
         );
         expect(result.transactions).toHaveTransaction({
@@ -297,7 +294,6 @@ describe('Assurer', () => {
         let result = await assurer.sendDonate(
             users[0].getSender(),
             fundingData.donateAmount + fees.donate - 1n,
-            opcodes.donate,
             0
         );
         expect(result.transactions).toHaveTransaction({
@@ -310,7 +306,6 @@ describe('Assurer', () => {
         result = await assurer.sendDonate(
             users[0].getSender(),
             fundingData.donateAmount + fees.donate,
-            opcodes.donate,
             0
         );
         expect(result.transactions).toHaveTransaction({
@@ -328,7 +323,6 @@ describe('Assurer', () => {
             await assurer.sendDonate(
                 users[i].getSender(),
                 fundingData.donateAmount + fees.donate,
-                opcodes.donate,
                 0
             );
         }
@@ -339,6 +333,48 @@ describe('Assurer', () => {
         const isActive = await assurer.getIsActive();
         expect(isActive).toBeFalsy();
         expect(await assurer.getBalance()).toStrictEqual(balance + fundingData.donateAmount * 10n);
-        console.log(fundingData.donators)
+    });
+
+    it('claim', async () => {
+        await deploy();
+        const balance = await assurer.getBalance();
+        let fundingData = await assurer.getFundingData();
+        for(let i = 0; i < 9; i++) {
+            await assurer.sendDonate(
+                users[i].getSender(),
+                fundingData.donateAmount + fees.donate,
+                0
+            );
+        }
+
+        let result = await assurer.sendClaim(deployer.getSender(), toNano(1), 0);
+        expect(result.transactions).toHaveTransaction({
+            from: deployer.address,
+            to: assurer.address,
+            success: false,
+            exitCode: errors.underfunded
+        });
+        result = await assurer.sendClaim(users[0].getSender(), toNano(1), 0);
+        expect(result.transactions).toHaveTransaction({
+            from: users[0].address,
+            to: assurer.address,
+            success: false,
+            exitCode: errors.unauthorized
+        });
+
+        await assurer.sendDonate(
+            users[9].getSender(),
+            fundingData.donateAmount + fees.donate,
+            0
+        );
+
+        result = await assurer.sendClaim(deployer.getSender(), toNano(1), 0);
+        expect(result.transactions).toHaveTransaction({
+            from: assurer.address,
+            to: deployer.address,
+            success: true,
+            inMessageBounced: false
+        });
+        expect(await assurer.getBalance()).toStrictEqual(0n);
     });
 });

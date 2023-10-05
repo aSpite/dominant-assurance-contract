@@ -5,9 +5,11 @@ import {
     Contract,
     contractAddress,
     ContractProvider,
-    Dictionary, DictionaryValue,
+    Dictionary,
+    DictionaryValue,
     Sender,
-    SendMode, Slice
+    SendMode,
+    Slice
 } from 'ton-core';
 
 export type AssurerConfig = {
@@ -76,21 +78,30 @@ export class Assurer implements Contract {
         });
     }
 
-    async sendDonate(
-        provider:ContractProvider,
-        via: Sender,
-        value: bigint,
-        op: number,
-        queryID: number
-    ) {
+    async sendDonate(provider: ContractProvider, via: Sender, value: bigint, queryID: number) {
         await provider.internal(via, {
             value,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
             body: beginCell()
-                .storeUint(op, 32)
+                .storeUint(0x6e89546a, 32)
                 .storeUint(queryID, 64)
                 .endCell()
         });
+    }
+
+    async sendClaim(provider: ContractProvider, via: Sender, value: bigint, queryID: number) {
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: beginCell()
+                .storeUint(0xed7ae559, 32)
+                .storeUint(queryID, 64)
+                .endCell()
+        });
+    }
+
+    async sendReturn(provider: ContractProvider) {
+        await provider.external(beginCell().endCell());
     }
 
     async getFundingData(provider: ContractProvider): Promise<FundingData> {
