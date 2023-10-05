@@ -1,12 +1,11 @@
 import {
     Blockchain,
-    printTransactionFees,
     SandboxContract,
     SendMessageResult,
     TreasuryContract
 } from '@ton-community/sandbox';
 import {
-    Cell, CommonMessageInfo,
+    Cell,
     Sender,
     toNano,
     TransactionComputeVm,
@@ -95,7 +94,7 @@ describe('Assurer', () => {
         deployer = await blockchain.treasury('deployer');
 
         users = [];
-        for(let i = 0; i < 500; i++) {
+        for(let i = 0; i < 501; i++) {
             users.push(await blockchain.treasury(`user ${i}`))
         }
 
@@ -486,15 +485,67 @@ describe('Assurer', () => {
         )
         // 35 2212 898n = 0.035221 TON
 
-        // fundingData = await assurer.getFundingData();
-        // expect(fundingData.donatedCounts).toStrictEqual(255);
-        // expect(fundingData.donators!.size).toStrictEqual(255);
-
         await blockchain.loadFrom(snapshot);
         blockchain.now = Math.ceil(Date.now() / 1000) + 60 * 60; // + 1 hour
         result = await assurer.sendReturn();
         console.log(await assurer.getBalance());
         console.log((result.transactions[503].inMessage!.info as CommonMessageInfoInternal).value.coins)
         // 3 097 463 668 = 3.097463 TON
+    });
+
+    it('500 donates + claim', async () => {
+        await assurer.sendDeploy(deployer.getSender(),
+            toNano(150),
+            toNano(1000),
+            toNano(100),
+            500,
+            initData.validUntil
+        );
+        const balance = await assurer.getBalance();
+
+        let fundingData = await assurer.getFundingData();
+        let storageFees = 0n;
+        for(let i = 0; i < 500; i++) {
+            const result = await assurer.sendDonate(
+                users[i].getSender(),
+                fundingData.donateAmount + fees.donate,
+                0
+            );
+
+           storageFees += (result.transactions[1].description as TransactionDescriptionGeneric)
+               .storagePhase!.storageFeesCollected;
+        }
+
+        let result = await assurer.sendDonate(
+            users[500].getSender(),
+            fundingData.donateAmount + fees.donate,
+            0
+        );
+        expect(result.transactions).toHaveTransaction({
+            from: users[500].address,
+            to: assurer.address,
+            success: false,
+            exitCode: errors.notActive
+        });
+
+        fundingData = await assurer.getFundingData();
+        for(let i = 0; i < 500; i++) {
+            expect(fundingData.donators!.has(users[i].address)).toBeTruthy();
+        }
+        expect(fundingData.donatedCounts).toStrictEqual(500);
+        expect(fundingData.donators!.size).toStrictEqual(500);
+        expect(await assurer.getIsActive()).toBeFalsy();
+        expect(await assurer.getBalance()).toStrictEqual(balance + fundingData.donateAmount * 500n - storageFees);
+
+        result = await assurer.sendClaim(deployer.getSender(), toNano(1), 0);
+        expect(result.transactions).toHaveTransaction({
+            from: assurer.address,
+            to: deployer.address,
+            success: true,
+            inMessageBounced: false
+        });
+        expect(await assurer.getBalance()).toStrictEqual(0n);
+        expect((result.transactions[2].inMessage!.info as CommonMessageInfoInternal).value.coins)
+            .toBeGreaterThan(balance + fundingData.donateAmount * 500n - storageFees);
     });
 });
