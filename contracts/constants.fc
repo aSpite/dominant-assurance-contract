@@ -1,5 +1,6 @@
 const int op::donate = 0x6e89546a;
-const int op::claim = 0xed7ae559;
+const int op::claim = 0x6d7ae559;
+const int op::return = 0x07e77d4a;
 
 const int config::min_funding_amount = 50 * 1000000000; ;; 50 TON
 const int config::min_guarantee_percentage = 5; ;; 5%
@@ -25,3 +26,4 @@ const int error::already_donated = 110;
 const int error::underfunded = 111;
 const int error::still_active = 112;
 const int error::no_donators = 113;
+const int error::funding_ended = 114;

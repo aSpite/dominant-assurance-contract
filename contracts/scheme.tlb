@@ -2,4 +2,5 @@ _ created_time:uint32 author_address:MsgAddressInt goal:Coins donate_amount:Coin
   participants_count:uint8 valid_until:uint32 donators:(HashmapE 267 ^Cell) = AssurerStorage;
 
 donate#6e89546a query_id:uint64 = InternalMsgBody; // 0x6e89546a & 0x7fffffff = 0x6e89546a
-claim#ed7ae559 query_id:uint64 = InternalMsgBody; // 0xed7ae559 & 0x7fffffff = 0xed7ae559
+claim#6d7ae559 query_id:uint64 = InternalMsgBody; // 0xed7ae559 & 0x7fffffff = 0x6d7ae559
+return#07e77d4a = InternalMsgBody; // 0x07e77d4a | 0x80000000 = 0x07e77d4a

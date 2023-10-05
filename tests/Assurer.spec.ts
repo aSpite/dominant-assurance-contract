@@ -48,7 +48,8 @@ const errors = {
     alreadyDonated: 110,
     underfunded: 111,
     stillActive: 112,
-    noDonators: 113
+    noDonators: 113,
+    fundingEnded: 114
 };
 
 const initData = {
@@ -57,11 +58,6 @@ const initData = {
     guaranteeAmount: 20_000_000_000n,
     participantsCount: 10,
     validUntil: Math.ceil(Date.now() / 1000) + 60 * 60 // + 1 hour
-};
-
-const opcodes = {
-    donate: 0x6e89546a,
-    claim: 0xed7ae559
 };
 
 const fees = {
@@ -335,7 +331,7 @@ describe('Assurer', () => {
         expect(await assurer.getBalance()).toStrictEqual(balance + fundingData.donateAmount * 10n);
     });
 
-    it('claim', async () => {
+    it('claim + errors', async () => {
         await deploy();
         const balance = await assurer.getBalance();
         let fundingData = await assurer.getFundingData();
@@ -368,12 +364,67 @@ describe('Assurer', () => {
             0
         );
 
+        // Sandbox does not return exit code, just throw(string)
+        let success = false;
+        try {
+            await assurer.sendReturn();
+            success = true;
+        } catch (e) {}
+
+        expect(success).toBeFalsy();
+
         result = await assurer.sendClaim(deployer.getSender(), toNano(1), 0);
         expect(result.transactions).toHaveTransaction({
             from: assurer.address,
             to: deployer.address,
             success: true,
             inMessageBounced: false
+        });
+        expect(await assurer.getBalance()).toStrictEqual(0n);
+    });
+
+    it('return donates + errors', async () => {
+        await deploy();
+        let success = false;
+        try {
+            await assurer.sendReturn();
+            success = true;
+        } catch (e) {}
+        expect(success).toBeFalsy();
+
+        let fundingData = await assurer.getFundingData();
+        for(let i = 0; i < 5; i++) {
+            await assurer.sendDonate(
+                users[i].getSender(),
+                fundingData.donateAmount + fees.donate,
+                0
+            );
+        }
+
+        try {
+            await assurer.sendReturn();
+            success = true;
+        } catch (e) {}
+        expect(success).toBeFalsy();
+
+        blockchain.now = Math.ceil(Date.now() / 1000) + 60 * 60; // + 1 hour
+        const result = await assurer.sendReturn();
+        expect(result.transactions).toHaveTransaction({
+            to: assurer.address,
+            success: true,
+        });
+        for(let i = 0; i < 5; i++) {
+            expect(result.transactions).toHaveTransaction({
+                from: assurer.address,
+                to: users[i].address,
+                success: true,
+                op: 0x07e77d4a
+            });
+        }
+        expect(result.transactions).toHaveTransaction({
+            from: assurer.address,
+            to: deployer.address,
+            success: true
         });
         expect(await assurer.getBalance()).toStrictEqual(0n);
     });

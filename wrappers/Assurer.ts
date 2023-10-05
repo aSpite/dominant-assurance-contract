@@ -94,7 +94,7 @@ export class Assurer implements Contract {
             value,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
             body: beginCell()
-                .storeUint(0xed7ae559, 32)
+                .storeUint(0x6d7ae559, 32)
                 .storeUint(queryID, 64)
                 .endCell()
         });

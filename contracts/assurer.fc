@@ -53,18 +53,19 @@ global cell storage::donators;
 () recv_external(slice in_msg) {
     load_data();
     throw_unless(error::no_donators, storage::donated_count > 0);
-    throw_unless(error::still_active, now() < storage::valid_until);
-    ;; TODO: Handle success case
+    throw_unless(error::still_active, now() >= storage::valid_until);
+    throw_if(error::funding_ended, storage::donated_count == storage::participants_count);
     accept_message();
     do {
         (slice addr, _, int f) = storage::donators~dict::delete_get_min(267);
-        int return_amount = div_floor(storage::guarantee_amount, storage::donated_count);
+        int return_amount = div_floor(storage::guarantee_amount, storage::participants_count);
         if(f) {
             send_raw_message(begin_cell()
             .store_uint(0x10, 6)
             .store_slice(addr)
             .store_coins(return_amount)
             .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+            .store_uint(op::return, 32)
             .end_cell()
                 , 1);
         }
