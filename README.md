@@ -20,3 +20,7 @@ This contract will help raise funds safely and ensure that if the specified amou
 ## Fees
 
 Commissions are calculated for a maximum of 500 users. If it is necessary to increase this number, then it is necessary to recalculate the commissions again
+
+## Failed test
+
+Some tests may fail if the computer on which they are running processes transactions slowly. This is due to the fact that after a certain time, the storage fee is deducted from contract balance and the balance does not coincide with the calculations.

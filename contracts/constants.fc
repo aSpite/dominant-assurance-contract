@@ -1,6 +1,6 @@
 const int op::donate = 0x6e89546a;
 const int op::claim = 0x6d7ae559;
-const int op::return = 0x07e77d4a;
+const int op::return = 0x87e77d4a;
 
 const int config::min_funding_amount = 50 * 1000000000; ;; 50 TON
 const int config::min_guarantee_percentage = 5; ;; 5%
@@ -9,8 +9,8 @@ const int config::max_participants_count = 500;
 const int config::max_funding_period = 2678400; ;; 31 days
 const int config::min_donate_amount = 1 * 1000000000; ;; 1 TON
 
-const int fee::initilization = 4000000000; ;; 3.097463 + 0.035221 = 3.132684 -> 4 TON
-const int fee::donate = 20000000; ;; 0.014983 -> 0.02 TON
+const int fee::initilization = 4000000000; ;; 3.042030 + 0.352260 = 3.39429 -> 4 TON
+const int fee::donate = 20000000; ;; 0.0137 -> 0.02 TON
 
 const int error::unauthorized = 100;
 const int error::small_funding_amount = 101;

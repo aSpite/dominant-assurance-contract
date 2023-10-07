@@ -304,7 +304,6 @@ describe('Assurer', () => {
 
     it('claim + errors', async () => {
         await deploy();
-        const balance = await assurer.getBalance();
         let fundingData = await assurer.getFundingData();
         for(let i = 0; i < 9; i++) {
             await assurer.sendDonate(
@@ -389,7 +388,7 @@ describe('Assurer', () => {
                 from: assurer.address,
                 to: users[i].address,
                 success: true,
-                op: 0x07e77d4a
+                op: 0x87e77d4a
             });
         }
         expect(result.transactions).toHaveTransaction({
@@ -433,7 +432,7 @@ describe('Assurer', () => {
                 console.log(fundingData.donateAmount)
                 // printTransactionFees(result.transactions)
                 console.log(result.transactions[1].description)
-                // 14 983 000n = 0.014983 TON
+                // 13 700 000n = 0.0137 TON
             }
         }
 
@@ -453,14 +452,14 @@ describe('Assurer', () => {
             (result.transactions[1].description as TransactionDescriptionGeneric)
                 .storagePhase!.storageFeesCollected
         )
-        // 35 2212 898n = 0.035221 TON
+        // 352 260 890n = 0.352260 TON
 
         await blockchain.loadFrom(snapshot);
         blockchain.now = Math.ceil(Date.now() / 1000) + 60 * 60; // + 1 hour
         result = await assurer.sendReturn();
         console.log(await assurer.getBalance());
         console.log((result.transactions[503].inMessage!.info as CommonMessageInfoInternal).value.coins)
-        // 3 097 463 668 = 3.097463 TON
+        // 3 042 030 713n = 3.042030 TON
     });
 
     it('500 donates + claim', async () => {
