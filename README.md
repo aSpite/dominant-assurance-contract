@@ -1,5 +1,7 @@
 # Dominant Assurance Contract
 
+This contract will help raise funds safely and ensure that if the specified amount is not collected at the right time, everyone will receive their funds back together with the bonus.
+
 ## Project structure
 
 -   `contracts` - source code of all the smart contracts of the project and their dependencies.
@@ -9,18 +11,12 @@
 
 ## How to use
 
-### Build
+- **Build:** `npx blueprint build`
 
-`npx blueprint build` or `yarn blueprint build`
+- **Test:** `npx blueprint test` 
 
-### Test
+- **Deploy or run another script:** `npx blueprint run`
 
-`npx blueprint test` or `yarn blueprint test`
+## Fees
 
-### Deploy or run another script
-
-`npx blueprint run` or `yarn blueprint run`
-
-### Add a new contract
-
-`npx blueprint create ContractName` or `yarn blueprint create ContractName`
+Commissions are calculated for a maximum of 500 users. If it is necessary to increase this number, then it is necessary to recalculate the commissions again
