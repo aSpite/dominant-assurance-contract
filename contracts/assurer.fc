@@ -125,7 +125,8 @@ global cell storage::donators;
         throw_unless(error::many_participants, storage::participants_count <= config::max_participants_count);
         throw_unless(error::big_funding_period, storage::valid_until - now() <= config::max_funding_period);
         throw_unless(error::small_donate_amount, storage::donate_amount >= config::min_donate_amount);
-        throw_unless(error::not_enough_coins, msg_value >= storage::guarantee_amount + fee::initilization);
+        ;; 0.05 TON for fees
+        throw_unless(error::not_enough_coins, msg_value >= storage::guarantee_amount + fee::initilization + 50000000);
 
         in_msg_body.end_parse();
         raw_reserve(storage::guarantee_amount + fee::initilization, 4);

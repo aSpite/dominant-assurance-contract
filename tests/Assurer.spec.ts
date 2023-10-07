@@ -15,6 +15,7 @@ import { Assurer } from '../wrappers/Assurer';
 import '@ton-community/test-utils';
 import { compile } from '@ton-community/blueprint';
 import {CommonMessageInfoInternal} from "ton-core/src/types/CommonMessageInfo";
+import {errors, fees, initData} from "../config";
 
 async function getInitDeployPhase(
     assurer: SandboxContract<Assurer>,
@@ -35,37 +36,6 @@ async function getInitDeployPhase(
 
     let description = deployResult.transactions[1].description as TransactionDescriptionGeneric;
     return description.computePhase as TransactionComputeVm
-}
-
-const errors = {
-    unauthorized: 100,
-    smallFundingAmount: 101,
-    smallGuaranteeAmount: 102,
-    bigGuaranteeAmount: 103,
-    manyParticipants: 104,
-    bigFundingPeriod: 105,
-    smallDonateAmount: 106,
-    notEnoughCoins: 107,
-    notEnoughDonate: 108,
-    notActive: 109,
-    alreadyDonated: 110,
-    underfunded: 111,
-    stillActive: 112,
-    noDonators: 113,
-    fundingEnded: 114
-};
-
-const initData = {
-    value: 25_000_000_000n,
-    goal: 100_000_000_000n,
-    guaranteeAmount: 20_000_000_000n,
-    participantsCount: 10,
-    validUntil: Math.ceil(Date.now() / 1000) + 60 * 60 // + 1 hour
-};
-
-const fees = {
-    init: 4_000_000_000n,
-    donate: 20_000_000n
 }
 
 describe('Assurer', () => {
