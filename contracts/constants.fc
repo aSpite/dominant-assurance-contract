@@ -1,6 +1,6 @@
-const int op::donate = 0x6e89546a;
-const int op::claim = 0x6d7ae559;
-const int op::return = 0x87e77d4a;
+const int op::donate = 0x6d38fd8a;
+const int op::claim = 0x4d0c099d;
+const int op::return = 0x85d32319;
 
 const int config::min_funding_amount = 50 * 1000000000; ;; 50 TON
 const int config::min_guarantee_percentage = 5; ;; 5%

@@ -388,7 +388,7 @@ describe('Assurer', () => {
                 from: assurer.address,
                 to: users[i].address,
                 success: true,
-                op: 0x87e77d4a
+                op: 0x85d32319
             });
         }
         expect(result.transactions).toHaveTransaction({
