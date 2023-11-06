@@ -69,7 +69,7 @@ global cell storage::donators;
         }
     } until((~ f) | (count == 160));
     save_data();
-    if(count == 160) {
+    if(~ null?(storage::donators)) {
         send_raw_message(begin_cell()
         .store_uint(0x10, 6)
         .store_slice(my_address())
