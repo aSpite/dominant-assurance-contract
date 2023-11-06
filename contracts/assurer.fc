@@ -64,8 +64,9 @@ global cell storage::donators;
             .store_uint(op::return, 32)
             .end_cell()
                 , 1);
+
+            count += 1;
         }
-        count += 1;
     } until((~ f) | (count == 160));
     save_data();
     if(count == 160) {
